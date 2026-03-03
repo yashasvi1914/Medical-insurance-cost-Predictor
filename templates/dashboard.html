@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MedCost AI — EDA Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #060910; --surface: #0d1117; --panel: #161b22; --border: #21262d;
+      --text: #e6edf3; --muted: #7d8590; --accent: #58a6ff; --accent2: #3fb950;
+      --danger: #f85149; --gold: #d29922;
+      --font-head: 'Syne', sans-serif; --font-mono: 'DM Mono', monospace;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-mono); background: var(--bg);
+      color: var(--text); min-height: 100vh;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0; z-index: 0;
+      background-image: linear-gradient(rgba(88,166,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(88,166,255,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(6,9,16,0.9); backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem; height: 64px;
+    }
+    .nav-brand { font-family: var(--font-head); font-weight: 800; font-size: 1.25rem; letter-spacing: -0.03em; }
+    .nav-brand span { color: var(--accent); }
+    .nav-links a { color: var(--muted); text-decoration: none; font-size: 0.85rem; margin-left: 1.5rem; transition: color 0.2s; }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); }
+
+    .container { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+
+    .page-header { margin-bottom: 3rem; }
+    .page-header h1 { font-family: var(--font-head); font-size: 2.2rem; font-weight: 800; letter-spacing: -0.04em; margin-bottom: 0.5rem; }
+    .page-header h1 span { color: var(--accent); }
+    .page-header p { color: var(--muted); font-size: 0.9rem; }
+
+    /* ─ Model comparison table ─ */
+    .section-title { font-family: var(--font-head); font-size: 1.15rem; font-weight: 700; margin-bottom: 1.2rem; display: flex; align-items: center; gap: 10px; }
+    .section-title::after { content:''; flex:1; height:1px; background: var(--border); }
+
+    .model-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; margin-bottom: 3rem; }
+    @media(max-width:700px){ .model-grid { grid-template-columns: 1fr; } }
+
+    .model-card {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem;
+      transition: border-color 0.2s, transform 0.2s;
+      position: relative; overflow: hidden;
+    }
+    .model-card.best { border-color: var(--accent); }
+    .model-card.best::before {
+      content: '👑 BEST'; position: absolute; top: 10px; right: 10px;
+      background: var(--accent); color: #000; font-size: 0.65rem; font-weight: 700;
+      border-radius: 100px; padding: 3px 10px; letter-spacing: 0.05em;
+    }
+    .model-card:hover { transform: translateY(-3px); }
+    .model-name { font-family: var(--font-head); font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem; }
+    .metric { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .metric:last-child { border-bottom: none; }
+    .metric .key { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .metric .val { font-size: 0.95rem; font-weight: 600; color: var(--accent2); }
+
+    /* ─ R2 bar ─ */
+    .r2-bar { margin-top: 1rem; }
+    .r2-track { height: 6px; background: var(--border); border-radius: 4px; overflow: hidden; margin-top: 6px; }
+    .r2-fill { height: 100%; background: var(--accent); border-radius: 4px; }
+
+    /* ─ Charts grid ─ */
+    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 3rem; }
+    @media(max-width:700px){ .charts-grid { grid-template-columns: 1fr; } }
+
+    .chart-card {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+      overflow: hidden; transition: border-color 0.2s;
+    }
+    .chart-card:hover { border-color: rgba(88,166,255,0.25); }
+    .chart-header { padding: 1.2rem 1.5rem 0.8rem; border-bottom: 1px solid var(--border); }
+    .chart-header h3 { font-family: var(--font-head); font-size: 0.9rem; font-weight: 700; }
+    .chart-header p { font-size: 0.75rem; color: var(--muted); margin-top: 3px; }
+    .chart-body { padding: 1rem; }
+    .chart-body img { width: 100%; border-radius: 8px; display: block; }
+
+    .chart-full { grid-column: 1 / -1; }
+
+    /* ─ Feature importance ─ */
+    .fi-row {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+    }
+    .fi-name { width: 80px; font-size: 0.78rem; color: var(--muted); text-align: right; flex-shrink: 0; }
+    .fi-track { flex: 1; height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; }
+    .fi-fill { height: 100%; border-radius: 5px; }
+    .fi-val { width: 50px; font-size: 0.78rem; color: var(--text); }
+
+    /* ─ Dataset stats ─ */
+    .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 1rem; margin-bottom: 3rem; }
+    @media(max-width:700px){ .stats-grid { grid-template-columns: repeat(2,1fr); } }
+    .stat-card {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+      padding: 1.2rem; text-align: center;
+    }
+    .stat-card .sv { font-family: var(--font-head); font-size: 1.8rem; font-weight: 700; color: var(--accent); }
+    .stat-card .sl { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; margin-top: 4px; letter-spacing: 0.08em; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">Medi<span>Bridge</span> AI</div>
+  <div class="nav-links">
+    <a href="/">Predict</a>
+    <a href="/dashboard" class="active">Dashboard</a>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1><span>Dashboard</span></h1>
+    <p>Overview of model performance and dataset statistics</p>
+  </div>
+
+  <!-- Dataset stats -->
+  <div class="section-title">📋 Dataset Overview</div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="sv">1,338</div><div class="sl">Total Records</div></div>
+    <div class="stat-card"><div class="sv">6</div><div class="sl">Features</div></div>
+    <div class="stat-card"><div class="sv">0</div><div class="sl">Missing Values</div></div>
+    <div class="stat-card"><div class="sv">$19,998</div><div class="sl">Mean Charge</div></div>
+  </div>
+
+  <!-- Model comparison -->
+  <div class="section-title">🤖 Model Comparison</div>
+  <div class="model-grid">
+    {% for name, metrics in model_results.results.items() %}
+    <div class="model-card {% if name == model_results.best_model %}best{% endif %}">
+      <div class="model-name">{{ name }}</div>
+      <div class="metric"><span class="key">R² Score</span><span class="val">{{ "%.4f"|format(metrics.r2) }}</span></div>
+      <div class="metric"><span class="key">MSE</span><span class="val">${{ "{:,.0f}".format(metrics.mse) }}</span></div>
+      <div class="metric"><span class="key">RMSE</span><span class="val">${{ "{:,.0f}".format(metrics.rmse) }}</span></div>
+      <div class="r2-bar">
+        <div style="font-size:0.7rem;color:var(--muted)">Accuracy</div>
+        <div class="r2-track"><div class="r2-fill" style="width:{{ (metrics.r2*100)|round(1) }}%"></div></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Charts -->
+  <div class="section-title">📊 Visual Analysis</div>
+  <div class="charts-grid">
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>Charge Distribution & Smoker Impact</h3>
+        <p>Distribution of charges (left) and smoker vs non-smoker comparison (right)</p>
+      </div>
+      <div class="chart-body">
+        <img src="/static/eda_charges.png" alt="Charge Distribution" />
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>Feature Correlation Heatmap</h3>
+        <p>Pearson correlation between all numeric features and target</p>
+      </div>
+      <div class="chart-body">
+        <img src="/static/correlation_heatmap.png" alt="Correlation Heatmap" />
+      </div>
+    </div>
+
+    <div class="chart-card chart-full">
+      <div class="chart-header">
+        <h3>Model Performance Comparison — R² & RMSE</h3>
+        <p>Side-by-side comparison of all 3 trained regression models</p>
+      </div>
+      <div class="chart-body">
+        <img src="/static/model_comparison.png" alt="Model Comparison" />
+      </div>
+    </div>
+
+    <div class="chart-card chart-full">
+      <div class="chart-header">
+        <h3>Feature Importance (Random Forest)</h3>
+        <p>How much each feature contributes to prediction accuracy</p>
+      </div>
+      <div class="chart-body">
+        <img src="/static/feature_importance.png" alt="Feature Importance" />
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Feature importance bars (inline) -->
+  <div class="section-title">⚖️ Feature Importance Breakdown</div>
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:1.5rem;margin-bottom:3rem;">
+    {% set fi = model_results.feature_importance %}
+    {% set feat_map = [('smoker_enc','Smoker','#f85149'),('age','Age','#58a6ff'),('bmi','BMI','#3fb950'),('children','Children','#d29922'),('region_enc','Region','#a371f7'),('sex_enc','Sex','#7d8590')] %}
+    {% for key, label, color in feat_map %}
+    {% if key in fi %}
+    <div class="fi-row">
+      <div class="fi-name">{{ label }}</div>
+      <div class="fi-track">
+        <div class="fi-fill" style="width:{{ (fi[key]*100)|round(1) }}%;background:{{ color }}"></div>
+      </div>
+      <div class="fi-val">{{ "%.1f"|format(fi[key]*100) }}%</div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,28 @@
+{
+  "results": {
+    "Linear Regression": {
+      "r2": 0.9008,
+      "mse": 23363097.45,
+      "rmse": 4833.54
+    },
+    "Random Forest": {
+      "r2": 0.9402,
+      "mse": 14084640.21,
+      "rmse": 3752.95
+    },
+    "Gradient Boosting": {
+      "r2": 0.9386,
+      "mse": 14456331.22,
+      "rmse": 3802.15
+    }
+  },
+  "best_model": "Random Forest",
+  "feature_importance": {
+    "age": 0.1218,
+    "sex_enc": 0.0089,
+    "bmi": 0.0328,
+    "children": 0.0091,
+    "smoker_enc": 0.8179,
+    "region_enc": 0.0096
+  }
+}

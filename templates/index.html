@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MedCost AI — Insurance Cost Predictor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ─── Reset & Variables ─────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #060910;
+      --surface:   #0d1117;
+      --panel:     #161b22;
+      --border:    #21262d;
+      --text:      #e6edf3;
+      --muted:     #7d8590;
+      --accent:    #58a6ff;
+      --accent2:   #3fb950;
+      --danger:    #f85149;
+      --gold:      #d29922;
+      --glow:      rgba(88,166,255,0.18);
+      --font-head: 'Syne', sans-serif;
+      --font-mono: 'DM Mono', monospace;
+      --radius:    12px;
+      --transition: 0.22s cubic-bezier(.4,0,.2,1);
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-mono);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── Animated background grid ──────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(88,166,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(88,166,255,0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      animation: gridDrift 20s linear infinite;
+    }
+    @keyframes gridDrift { from { background-position: 0 0; } to { background-position: 48px 48px; } }
+
+    /* ─── Nav ────────────────────────────────────────────── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(6,9,16,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem; height: 64px;
+    }
+    .nav-brand {
+      font-family: var(--font-head);
+      font-weight: 800; font-size: 1.25rem;
+      letter-spacing: -0.03em;
+    }
+    .nav-brand span { color: var(--accent); }
+    .nav-links a {
+      color: var(--muted); text-decoration: none;
+      font-size: 0.85rem; margin-left: 1.5rem;
+      transition: color var(--transition);
+    }
+    .nav-links a:hover { color: var(--text); }
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(63,185,80,0.12); border: 1px solid rgba(63,185,80,0.3);
+      color: var(--accent2); border-radius: 100px;
+      padding: 4px 12px; font-size: 0.75rem; font-weight: 500;
+    }
+    .badge::before { content:''; width:7px; height:7px; border-radius:50%; background:var(--accent2); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(0.85)} }
+
+    /* ─── Hero ───────────────────────────────────────────── */
+    .hero {
+      position: relative; z-index: 1;
+      text-align: center; padding: 80px 2rem 60px;
+    }
+    .hero-tag {
+      display: inline-block; margin-bottom: 1.5rem;
+      background: rgba(88,166,255,0.08); border: 1px solid rgba(88,166,255,0.2);
+      color: var(--accent); border-radius: 100px;
+      padding: 6px 18px; font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase;
+    }
+    h1 {
+      font-family: var(--font-head); font-size: clamp(2.2rem, 6vw, 4rem);
+      font-weight: 800; letter-spacing: -0.04em; line-height: 1.08;
+      margin-bottom: 1.2rem;
+    }
+    h1 em { font-style: normal; color: var(--accent); }
+    .hero p {
+      color: var(--muted); font-size: 1rem; max-width: 520px; margin: 0 auto 2rem;
+      line-height: 1.7;
+    }
+    .stat-row {
+      display: flex; justify-content: center; gap: 2rem;
+      flex-wrap: wrap; margin-top: 0.5rem;
+    }
+    .stat { text-align: center; }
+    .stat-val { font-family: var(--font-head); font-size: 1.8rem; font-weight: 700; color: var(--accent); }
+    .stat-lbl { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+
+    /* ─── Main layout ────────────────────────────────────── */
+    .main {
+      position: relative; z-index: 1;
+      max-width: 1100px; margin: 0 auto; padding: 0 1.5rem 6rem;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
+    }
+    @media (max-width: 768px) { .main { grid-template-columns: 1fr; } }
+
+    /* ─── Cards ──────────────────────────────────────────── */
+    .card {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 16px; padding: 2rem;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .card:hover {
+      border-color: rgba(88,166,255,0.25);
+      box-shadow: 0 0 32px rgba(88,166,255,0.07);
+    }
+    .card-title {
+      font-family: var(--font-head); font-size: 1.05rem; font-weight: 700;
+      margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px;
+    }
+    .card-title .icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: rgba(88,166,255,0.12); display: grid; place-items: center;
+      font-size: 1rem;
+    }
+
+    /* ─── Form ───────────────────────────────────────────── */
+    .form-grid { display: grid; gap: 1rem; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+    input[type="number"], select {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px;
+      color: var(--text); font-family: var(--font-mono); font-size: 0.9rem;
+      width: 100%; transition: border-color var(--transition), box-shadow var(--transition);
+      outline: none; -webkit-appearance: none; appearance: none;
+    }
+    input[type="number"]:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(88,166,255,0.12);
+    }
+    select option { background: var(--panel); }
+
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+    /* Slider row */
+    .slider-row { display: flex; align-items: center; gap: 12px; }
+    input[type="range"] {
+      flex: 1; -webkit-appearance: none; height: 4px;
+      background: var(--border); border-radius: 4px; outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px;
+      border-radius: 50%; background: var(--accent); cursor: pointer;
+      transition: transform 0.15s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+    .slider-val {
+      min-width: 42px; text-align: center;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 6px; padding: 4px 8px; font-size: 0.85rem; color: var(--accent);
+    }
+
+    /* Predict button */
+    .btn-predict {
+      margin-top: 0.5rem; width: 100%; padding: 14px;
+      background: var(--accent); color: #000; border: none; border-radius: 10px;
+      font-family: var(--font-head); font-size: 1rem; font-weight: 700;
+      cursor: pointer; letter-spacing: 0.02em;
+      transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+      position: relative; overflow: hidden;
+    }
+    .btn-predict::after {
+      content:''; position:absolute; inset:0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+    }
+    .btn-predict:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(88,166,255,0.35); }
+    .btn-predict:active { transform: translateY(0); }
+    .btn-predict.loading { background: var(--muted); cursor: not-allowed; transform: none; }
+
+    /* ─── Result card ────────────────────────────────────── */
+    .result-card {
+      grid-column: 1 / -1;
+      display: none;
+      animation: slideUp 0.4s cubic-bezier(.4,0,.2,1);
+    }
+    .result-card.visible { display: block; }
+    @keyframes slideUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: none; } }
+
+    .result-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 2rem; flex-wrap: wrap;
+    }
+    .result-label {
+      font-size: 0.75rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px;
+    }
+    .result-amount {
+      font-family: var(--font-head); font-size: clamp(2.4rem, 6vw, 3.8rem);
+      font-weight: 800; letter-spacing: -0.04em;
+      background: linear-gradient(135deg, var(--accent), #a5d6ff);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .result-monthly { font-size: 0.9rem; color: var(--muted); margin-top: 4px; }
+    .result-meta { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+    .meta-chip {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 16px; text-align: center;
+    }
+    .meta-chip .val { font-size: 1.1rem; font-weight: 600; color: var(--accent2); }
+    .meta-chip .lbl { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; margin-top: 2px; }
+
+    /* Risk badge */
+    .risk-bar { margin-top: 1.2rem; }
+    .risk-bar-label { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); margin-bottom: 6px; }
+    .risk-track { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+    .risk-fill { height: 100%; border-radius: 4px; transition: width 1s cubic-bezier(.4,0,.2,1); }
+
+    /* ─── Info panel ─────────────────────────────────────── */
+    .info-panel {
+      display: flex; flex-direction: column; gap: 0.8rem;
+    }
+    .info-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 12px; background: var(--surface); border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .info-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+    .info-text .info-title { font-size: 0.82rem; font-weight: 600; margin-bottom: 2px; }
+    .info-text .info-desc { font-size: 0.75rem; color: var(--muted); line-height: 1.5; }
+
+    /* ─── Dashboard link ─────────────────────────────────── */
+    .dash-link-row {
+      position: relative; z-index: 1;
+      max-width: 1100px; margin: 0 auto 1.5rem; padding: 0 1.5rem;
+    }
+    .dash-link {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 20px; text-decoration: none;
+      color: var(--text); font-size: 0.85rem;
+      transition: border-color var(--transition), background var(--transition);
+    }
+    .dash-link:hover { border-color: var(--accent); background: rgba(88,166,255,0.06); }
+
+    /* ─── Error ──────────────────────────────────────────── */
+    .error-msg {
+      display: none; margin-top: 1rem; padding: 12px 16px;
+      background: rgba(248,81,73,0.1); border: 1px solid rgba(248,81,73,0.3);
+      border-radius: 8px; color: var(--danger); font-size: 0.85rem;
+    }
+    .error-msg.visible { display: block; }
+
+    /* ─── Footer ─────────────────────────────────────────── */
+    footer {
+      position: relative; z-index: 1;
+      text-align: center; padding: 2rem;
+      border-top: 1px solid var(--border); color: var(--muted); font-size: 0.78rem;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ── -->
+<nav>
+  <div class="nav-brand">Medi<span>Bridge</span> AI</div>
+  <div class="nav-links">
+    <a href="/">Predict</a>
+    <a href="/dashboard">Dashboard</a>
+    <span class="badge">Model: {{ model_name }}</span>
+  </div>
+</nav>
+
+<!-- ── Hero ── -->
+<section class="hero">
+  <div class="hero-tag">by samarth choudhar</div>
+  <h1>Predict Your<br/><em>Insurance Cost</em><br/>Instantly</h1>
+  <p>Enter your health profile and get an AI-powered insurance cost estimate in milliseconds — powered by a Random Forest model trained on 1,338 real-world records.</p>
+  <div class="stat-row">
+    <div class="stat">
+      <div class="stat-val">{{ "%.1f"|format(r2_score * 100) }}%</div>
+      <div class="stat-lbl">Model Accuracy (R²)</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">1,338</div>
+      <div class="stat-lbl">Training Records</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">3</div>
+      <div class="stat-lbl">Models Evaluated</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Dashboard link ── -->
+<div class="dash-link-row">
+  <a class="dash-link" href="/dashboard">
+    <span>📊</span> View EDA Dashboard & Model Comparison
+  </a>
+</div>
+
+<!-- ── Main ── -->
+<main class="main">
+
+  <!-- Form card -->
+  <div class="card">
+    <div class="card-title"><div class="icon">🩺</div> Health Profile</div>
+    <div class="form-grid">
+
+      <div class="field">
+        <label>Age (years)</label>
+        <div class="slider-row">
+          <input type="range" id="age" min="18" max="100" value="30"
+                 oninput="document.getElementById('age_val').textContent=this.value" />
+          <div class="slider-val" id="age_val">30</div>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label>Biological Sex</label>
+          <select id="sex">
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Smoker</label>
+          <select id="smoker">
+            <option value="no">Non-Smoker</option>
+            <option value="yes">Smoker</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>BMI (Body Mass Index)</label>
+        <div class="slider-row">
+          <input type="range" id="bmi" min="10" max="60" step="0.1" value="25.0"
+                 oninput="document.getElementById('bmi_val').textContent=parseFloat(this.value).toFixed(1)" />
+          <div class="slider-val" id="bmi_val">25.0</div>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label>Children / Dependents</label>
+          <select id="children">
+            <option value="0">0 — None</option>
+            <option value="1">1 child</option>
+            <option value="2">2 children</option>
+            <option value="3">3 children</option>
+            <option value="4">4 children</option>
+            <option value="5">5+ children</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Region (US)</label>
+          <select id="region">
+            <option value="southwest">Southwest</option>
+            <option value="southeast">Southeast</option>
+            <option value="northwest">Northwest</option>
+            <option value="northeast">Northeast</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn-predict" id="predictBtn" onclick="predict()">
+        ⚡ Calculate Insurance Cost
+      </button>
+      <div class="error-msg" id="errorMsg"></div>
+    </div>
+  </div>
+
+  <!-- Info card -->
+  <div class="card">
+    <div class="card-title"><div class="icon">💡</div> How It Works</div>
+    <div class="info-panel">
+      <div class="info-item">
+        <div class="info-icon">🔬</div>
+        <div class="info-text">
+          <div class="info-title">Random Forest Model</div>
+          <div class="info-desc">An ensemble of 100 decision trees trained on the standard insurance dataset, achieving 94% R² accuracy on held-out test data.</div>
+        </div>
+      </div>
+      <div class="info-item">
+        <div class="info-icon">🚬</div>
+        <div class="info-text">
+          <div class="info-title">Smoking is #1 Factor</div>
+          <div class="info-desc">Smoking status accounts for 81.8% of feature importance — smokers typically pay 3–4× more than non-smokers.</div>
+        </div>
+      </div>
+      <div class="info-item">
+        <div class="info-icon">📈</div>
+        <div class="info-text">
+          <div class="info-title">Age & BMI Drive Cost</div>
+          <div class="info-desc">Age (12.2%) and BMI (3.3%) are the second and third most important predictors of insurance charges.</div>
+        </div>
+      </div>
+      <div class="info-item">
+        <div class="info-icon">⚠️</div>
+        <div class="info-text">
+          <div class="info-title">Disclaimer</div>
+          <div class="info-desc">Predictions are AI estimates for educational purposes only. Actual insurance rates depend on many additional factors.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Result card -->
+  <div class="card result-card" id="resultCard">
+    <div class="card-title"><div class="icon">💰</div> Predicted Annual Insurance Cost</div>
+    <div class="result-inner">
+      <div>
+        <div class="result-label">Estimated Annual Premium</div>
+        <div class="result-amount" id="resultAmount">$0</div>
+        <div class="result-monthly" id="resultMonthly">— / month</div>
+      </div>
+      <div class="result-meta">
+        <div class="meta-chip">
+          <div class="val" id="metaR2">—</div>
+          <div class="lbl">R² Score</div>
+        </div>
+        <div class="meta-chip">
+          <div class="val" id="metaRMSE">—</div>
+          <div class="lbl">RMSE</div>
+        </div>
+        <div class="meta-chip">
+          <div class="val" id="metaModel">—</div>
+          <div class="lbl">Model</div>
+        </div>
+      </div>
+    </div>
+    <div class="risk-bar">
+      <div class="risk-bar-label">
+        <span>Cost Risk Level</span>
+        <span id="riskLabel">Calculating...</span>
+      </div>
+      <div class="risk-track"><div class="risk-fill" id="riskFill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  Built with ❤️ using Python · scikit-learn · FastAPI · Vanilla JS &nbsp;|&nbsp;
+  MedCost AI — Educational purposes only
+</footer>
+
+<script>
+  async function predict() {
+    const btn = document.getElementById('predictBtn');
+    const err = document.getElementById('errorMsg');
+    err.classList.remove('visible');
+
+    const payload = {
+      age:      parseInt(document.getElementById('age').value),
+      sex:      document.getElementById('sex').value,
+      bmi:      parseFloat(document.getElementById('bmi').value),
+      children: parseInt(document.getElementById('children').value),
+      smoker:   document.getElementById('smoker').value,
+      region:   document.getElementById('region').value,
+    };
+
+    btn.classList.add('loading');
+    btn.textContent = '⏳ Calculating...';
+
+    try {
+      const res = await fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const detail = await res.json();
+        throw new Error(detail.detail || 'Prediction failed');
+      }
+
+      const data = await res.json();
+      showResult(data);
+
+    } catch (e) {
+      err.textContent = '⚠️ ' + e.message;
+      err.classList.add('visible');
+    } finally {
+      btn.classList.remove('loading');
+      btn.textContent = '⚡ Calculate Insurance Cost';
+    }
+  }
+
+  function showResult(data) {
+    const annual  = data.predicted_charge;
+    const monthly = (annual / 12).toFixed(2);
+
+    document.getElementById('resultAmount').textContent  = '$' + annual.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('resultMonthly').textContent = '$' + monthly + ' / month';
+    document.getElementById('metaR2').textContent        = (data.r2_score * 100).toFixed(1) + '%';
+    document.getElementById('metaRMSE').textContent      = '$' + data.rmse.toLocaleString();
+    document.getElementById('metaModel').textContent     = data.model_used.split(' ')[0];
+
+    // Risk level
+    const maxCharge = 80000;
+    const pct = Math.min(100, (annual / maxCharge) * 100);
+    const fill = document.getElementById('riskFill');
+    const riskLabel = document.getElementById('riskLabel');
+
+    let riskColor, riskText;
+    if (pct < 25)      { riskColor='#3fb950'; riskText='Low Risk'; }
+    else if (pct < 55) { riskColor='#d29922'; riskText='Moderate Risk'; }
+    else if (pct < 80) { riskColor='#f0883e'; riskText='High Risk'; }
+    else               { riskColor='#f85149'; riskText='Very High Risk'; }
+
+    fill.style.background = riskColor;
+    fill.style.width = pct.toFixed(1) + '%';
+    riskLabel.textContent = riskText;
+    riskLabel.style.color = riskColor;
+
+    document.getElementById('resultCard').classList.add('visible');
+    document.getElementById('resultCard').scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
+</script>
+
+</body>
+</html>
