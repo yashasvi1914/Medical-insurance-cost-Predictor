@@ -9,7 +9,7 @@
 
 ---
 
-## 📋 Resume-Ready Project Description
+
 
 > Built a full-stack Medical Insurance Cost Prediction system using Python and scikit-learn, training and comparing Linear Regression, Random Forest, and Gradient Boosting models (best R² = 0.94) on 1,338 real-world records. Developed a production-ready REST API with FastAPI exposing a `/predict` endpoint, and a modern HTML/CSS frontend for real-time cost estimation. Deployed end-to-end on Render with model serialization via pickle, complete EDA dashboard with Matplotlib/Seaborn visualizations, and feature importance analysis identifying smoking status as the dominant predictor (81.8% importance).
 
