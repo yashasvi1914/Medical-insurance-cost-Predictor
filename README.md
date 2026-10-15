@@ -172,29 +172,6 @@ Returns all model comparison metrics.
 
 ---
 
-## ☁️ Deploy to Render
-
-### 1. Create a `Procfile`
-```
-web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-```
-
-### 2. Push to GitHub
-```bash
-git init && git add . && git commit -m "Initial commit"
-git remote add origin https://github.com/yourusername/repo.git
-git push -u origin main
-```
-
-### 3. Deploy on Render
-1. Go to [render.com](https://render.com) → New → Web Service
-2. Connect your GitHub repository
-3. Set **Build Command:** `pip install -r requirements.txt`
-4. Set **Start Command:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-5. Click **Deploy** ✅
-
----
-
 ## 🛠️ Tech Stack
 
 | Layer        | Technology           |
