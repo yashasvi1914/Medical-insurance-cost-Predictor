@@ -101,14 +101,16 @@ if FASTAPI_AVAILABLE:
 
     # ── Routes ───────────────────────────────────────────────────────────────
 
-    @app.get("/", response_class=HTMLResponse)
-    async def home(request: Request):
-        """Serve the frontend UI."""
-        return templates.TemplateResponse("index.html", {
-            "request":    request,
+@app.get("/")
+async def home(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={
             "model_name": best_name,
-            "r2_score":   model_results["results"][best_name]["r2"],
-        })
+            "r2_score": model_results["results"][best_name]["r2"],
+        },
+    )
 
     @app.get("/dashboard", response_class=HTMLResponse)
     async def dashboard(request: Request):
@@ -118,52 +120,44 @@ if FASTAPI_AVAILABLE:
             "model_results": model_results,
         })
 
-    @app.post("/predict", response_model=PredictionResponse)
-    async def predict(data: InsuranceInput):
-        """
-        Predict insurance cost.
-        Accepts JSON with: age, sex, bmi, children, smoker, region
-        Returns predicted_charge in USD.
-        """
-        try:
-            sex_enc    = le_sex.transform([data.sex])[0]
-            smoker_enc = le_smoker.transform([data.smoker])[0]
-            region_enc = le_region.transform([data.region])[0]
 
-            features = np.array([[data.age, sex_enc, data.bmi,
-                                   data.children, smoker_enc, region_enc]])
+@app.post("/predict", response_model=PredictionResponse)
+async def predict(data: InsuranceInput):
+    """
+    Predict insurance cost.
+    Accepts JSON with: age, sex, bmi, children, smoker, region
+    Returns predicted_charge in USD.
+    """
+    try:
+        sex_enc = le_sex.transform([data.sex])[0]
+        smoker_enc = le_smoker.transform([data.smoker])[0]
+        region_enc = le_region.transform([data.region])[0]
 
-            if use_scaler:
-                features = scaler.transform(features)
+        features = np.array([[
+            data.age,
+            sex_enc,
+            data.bmi,
+            data.children,
+            smoker_enc,
+            region_enc
+        ]])
 
-            prediction = float(model.predict(features)[0])
-            prediction = max(0.0, round(prediction, 2))
+        if use_scaler:
+            features = scaler.transform(features)
 
-            return PredictionResponse(
-                predicted_charge = prediction,
-                model_used       = best_name,
-                r2_score         = model_results["results"][best_name]["r2"],
-                rmse             = model_results["results"][best_name]["rmse"],
-                input_summary    = data.dict(),
-            )
+        prediction = float(model.predict(features)[0])
+        prediction = max(0.0, round(prediction, 2))
 
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        return PredictionResponse(
+            predicted_charge=prediction,
+            model_used=best_name,
+            r2_score=model_results["results"][best_name]["r2"],
+            rmse=model_results["results"][best_name]["rmse"],
+            input_summary=data.dict(),
+        )
 
-    @app.get("/health")
-    async def health():
-        """Health check endpoint."""
-        return {"status": "healthy", "model": best_name}
-
-    @app.get("/model-info")
-    async def model_info():
-        """Return all model comparison metrics."""
-        return model_results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── Entry point ──────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    if FASTAPI_AVAILABLE:
-        uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-    else:
-        print("Install FastAPI first: pip install fastapi uvicorn")
+    
